@@ -3,24 +3,35 @@ counter_mid	equ		s1;
 counter_high 	equ		s2;
 var_out		equ		s3;
 shift_out	equ		s4;
-shift
+shift_counter	equ		s5;
+output_port	equ		0x00;
+mosi_mask	equ		0x01; MOSI wil be this pin on "output_port"
 start:
-	load	var_out,	0x00;
-	out	var_out,	0x00;
-	call	delay;
-	load	var_out,	0xff;
-	out	var_out,	0x00;
-	call	delay;
-	jump	start;
+;	load	var_out,	0x00;
+;	out	var_out,	0x00;
+;	call	delay;
+;	load	var_out,	0xff;
+;	out	var_out,	0x00;
+;	call	delay;
+	call 	shifter;
+;	jump	start;
+	jump	end;
 	
 shifter:
-	load 	counter_low	0xf7;
-	load	shift_out,	0xAA;
-	load	var_out,	0x01;// MOSI MASK
-	sl0	shift_out;
+	load 	shift_counter,	0xf9; Counter tou count 8 bits
+	load	shift_out,	0x94; Value to shift out
+	load	var_out,	mosi_mask;
 	and 	var_out,	shift_out;
-	
-	
+	out	var_out,	output_port;
+shifter_inner:
+	call	delay;
+	sr0	shift_out;
+	load	var_out,	mosi_mask;
+	and 	var_out,	shift_out;
+	out	var_out,	output_port;
+	add	shift_counter,	0x01;
+	jump	NC,		shifter_inner;
+	ret;
 
 delay:
 	load	counter_low,	0x00;
@@ -29,11 +40,12 @@ delay:
 delay_inner:
 	add 	counter_low,	0xff;		SHOULD be 0x01 @ 125MHz
 	jump 	NC,		delay_inner;
-	add	counter_mid,	0x01;
+	add	counter_mid,	0x50;		SHOULD be 0x01 @ 125MHz
 	jump 	NC,		delay_inner;
 	add	counter_high,	0x01;
 	test	counter_high,	0x02; 
-	ret	NZ;
 	jump 	NC,		delay_inner;
+	ret;
 	
-
+	
+end:
