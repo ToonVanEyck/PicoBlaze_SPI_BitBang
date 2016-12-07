@@ -1,38 +1,50 @@
 counter_low 	equ		s0;
 counter_mid	equ		s1;
 counter_high 	equ		s2;
+
 var_out		equ		s3;
+
 shift_out	equ		s4;
 shift_counter	equ		s5;
-output_port	equ		0x00;
-mosi_mask	equ		0x01; MOSI wil be this pin on "output_port"
-start:
-;	load	var_out,	0x00;
-;	out	var_out,	0x00;
-;	call	delay;
-;	load	var_out,	0xff;
-;	out	var_out,	0x00;
-;	call	delay;
-	call 	shifter;
-;	jump	start;
+
+mosi_port	equ		0x00;
+csN_port	equ		0x01;
+dclk_port	equ		0x03;
+
+readX		equ		0x93;
+readY		equ		0xd3;
+
+	load	var_out,	0x01;
+	out	var_out,	csN_port;	Set csN high
+
+	load	shift_out,	readX;		set to do an X read
+read:
+	load 	shift_counter,	0xf8; 		Counter to count 8 bits
+	load	var_out,	0x00;
+	out	var_out,	dclk_port;	Set dclk low
+	out	var_out,	csN_port;	Set csN low
+shift:
+	load	var_out,	0x00;
+	out	var_out,	dclk_port;	set dclk low
+	load	var_out,	0x01;
+	and 	var_out,	shift_out;
+	out	var_out,	mosi_port;	set MOSI bit
+	sr0	shift_out;			shift MOSI register	
+	call	delay;				wait half period
+	load 	var_out,	0x01;		
+	out	var_out,	dclk_port;	set dclk high
+	call 	delay;
+	add	shift_counter,	0x01;
+	jump	NC,		shift;
+	load	var_out,	0x00;
+	out	var_out,	dclk_port;	set dclk low
+	
+	; CODE FOR BUSY AND MISO HERE!
+	
+	load	var_out,	0x01;
+	out	var_out,	csN_port;	Set csN high
 	jump	end;
 	
-shifter:
-	load 	shift_counter,	0xf9; Counter tou count 8 bits
-	load	shift_out,	0x94; Value to shift out
-	load	var_out,	mosi_mask;
-	and 	var_out,	shift_out;
-	out	var_out,	output_port;
-shifter_inner:
-	call	delay;
-	sr0	shift_out;
-	load	var_out,	mosi_mask;
-	and 	var_out,	shift_out;
-	out	var_out,	output_port;
-	add	shift_counter,	0x01;
-	jump	NC,		shifter_inner;
-	ret;
-
 delay:
 	load	counter_low,	0x00;
 	load	counter_mid,	0x00;
@@ -40,7 +52,7 @@ delay:
 delay_inner:
 	add 	counter_low,	0xff;		SHOULD be 0x01 @ 125MHz
 	jump 	NC,		delay_inner;
-	add	counter_mid,	0x50;		SHOULD be 0x01 @ 125MHz
+	add	counter_mid,	0x41;		SHOULD be 0x01 @ 125MHz
 	jump 	NC,		delay_inner;
 	add	counter_high,	0x01;
 	test	counter_high,	0x02; 
