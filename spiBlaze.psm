@@ -2,6 +2,8 @@ counter_low 	equ		s0;
 counter_mid	equ		s1;
 counter_high 	equ		s2;
 var_out		equ		s3;
+shift_out	equ		s4;
+shift
 start:
 	load	var_out,	0x00;
 	out	var_out,	0x00;
@@ -11,8 +13,14 @@ start:
 	call	delay;
 	jump	start;
 	
-
-
+shifter:
+	load 	counter_low	0xf7;
+	load	shift_out,	0xAA;
+	load	var_out,	0x01;// MOSI MASK
+	sl0	shift_out;
+	and 	var_out,	shift_out;
+	
+	
 
 delay:
 	load	counter_low,	0x00;
@@ -28,3 +36,4 @@ delay_inner:
 	ret	NZ;
 	jump 	NC,		delay_inner;
 	
+
