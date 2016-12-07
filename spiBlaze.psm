@@ -7,9 +7,17 @@ var_out		equ		s3;
 shift_out	equ		s4;
 shift_counter	equ		s5;
 
+input		equ		s6;
+
+data_in_high	equ		s7;
+data_in_low	equ		s8;
+
 mosi_port	equ		0x00;
 csN_port	equ		0x01;
 dclk_port	equ		0x03;
+busy_port	equ		0x04;
+miso_port	equ		0x05;
+
 
 readX		equ		0x93;
 readY		equ		0xd3;
@@ -38,12 +46,38 @@ shift:
 	jump	NC,		shift;
 	load	var_out,	0x00;
 	out	var_out,	dclk_port;	set dclk low
-	
+busy:	
+	load 	var_out,	0x01;		
+	out	var_out,	dclk_port;	set dclk high
+	call 	delay;
+	load 	var_out,	0x00;		
+	out	var_out,	dclk_port;	set dclk low
+	call 	delay;
+	in	input,		busy_port;
+	test	input,		0x01;
+	jump	NZ,		busy;
 	; CODE FOR BUSY AND MISO HERE!
 	
+	
+	load 	shift_counter,	0xf4; 
+data_in:
 	load	var_out,	0x01;
-	out	var_out,	csN_port;	Set csN high
-	jump	end;
+	out	var_out,	csN_port;	Set dclk high
+	call 	delay;	
+	in	input,	miso_port;
+	or	data_in_low,	input;		shift data through registers
+	sl0	data_in_low;
+	sla	data_in_high;
+	load	var_out,	0x00;
+	out	var_out,	csN_port;	Set dclk low
+	call 	delay;
+	add	shift_counter,	0x01;
+	jump	NC,		data_in;	
+	
+
+	load 	var_out,	0x01;		
+	out	var_out,	dclk_port;	set dclk high
+	call 	delay;
 	
 delay:
 	load	counter_low,	0x00;
