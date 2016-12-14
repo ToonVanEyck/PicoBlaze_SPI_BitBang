@@ -12,6 +12,11 @@ xy		equ		s9;
 data_out_high	equ		sa;
 data_out_low	equ		sb;
 
+xDataHigh	equ		0x02;
+xDataLow	equ		0x01;
+yDataHigh	equ		0x20;
+yDataLow	equ		0x10;
+
 ioPort		equ		0x00;
 
 busy_mask	equ		0x10;
@@ -34,13 +39,13 @@ init:
 	load 	xy,		0x00;		0 => read X, 1 => read Y
 
 read:
+	test 	xy,		0x10;
+	call 	Z,		setX;
+	call 	NZ,		setY;
 	load	data_out_high,	0x00;
 	load	data_out_low,	0x00;
 	load	data_in_high,	0x00;
 	load	data_in_low,	0x00;
-	test 	xy,		0x10;
-	call 	Z,		setX;
-	call 	NZ,		setY;
 	load 	shift_counter,	0xf8; 		Counter to count 8 bits
 	load	var_out,	Nclk_Ndin;
 	out	var_out,	ioPort;		Set dclk low and din MOSI low
@@ -85,31 +90,33 @@ data_in:
 	add	shift_io,	0x01;
 	store	data_in_low, 	(shift_io);
 	
-	
-	test 	xy,		0x10;
-	call 	NZ,		memadd;
 	load 	counter_low,	memory_cnt
 	and	counter_low,	xy;		count_low contains memory location of next memory place
-	jump 	calc_avg;
+	load	counter_high,	counter_low;
+	add	counter_high,	0x10;
+;	jump 	calc_avg;
 load_data:
-	store	data_in_high, 	(shift_io);
-	store	data_in_high, 	(shift_io);
+	fetch	data_in_high, 	(counter_low);
+	add	counter_low,	0x01;
+	fetch	data_in_low, 	(counter_low);
+	add 	counter_low,	0x01;
 calc_avg:
-	sr0	data_in_high;
-	sra	data_in_low; /2
-	sr0	data_in_high;
-	sra	data_in_low; /4
-	sr0	data_in_high;
-	sra	data_in_low; /8
-
 	add	data_out_low,data_in_low;
 	addc	data_out_high,data_in_high;	
 
-
-	;jump load_data; 
-
-	out	data_in_high,	0x02;
-	out	data_in_low,	0x01;
+	
+	test 	counter_low,	counter_high;
+	jump 	Z,		load_data; 
+	
+	sr0	data_out_high;
+	sra	data_out_low; /2
+	sr0	data_out_high;
+	sra	data_out_low; /4
+	sr0	data_out_high;
+	sra	data_out_low; /8
+	
+	test 	xy,		0x10;
+	call 	NZ,		memadd;
 
 	xor  	xy,		0x10;	switch x<->y read
 	call 	delay;
@@ -149,9 +156,13 @@ clrMOSI:
 	call 	delay;
 	ret;
 setX:
+	out	data_out_high,	yDataHigh;	output average y data and prepare to read x data
+	out	data_out_low,	yDataLow;
 	load	shift_io,	readX;
 	ret;
 setY:
+	out	data_out_high,	xDataHigh;	output average x data and prepare to read y data
+	out	data_out_low,	xDataLow;
 	load	shift_io,	readY;
 	ret;
 memadd:
