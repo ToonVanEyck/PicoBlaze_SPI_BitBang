@@ -42,8 +42,8 @@ shift:
 	call 	NC,		clrMOSI;
 	add	shift_counter,	0x01;
 	jump	NC,		shift;
-	load	var_out,	Nclk_Ndin;
-	out	var_out,	ioPort;	set dclk low
+;	load	var_out,	Nclk_Ndin;
+	;out	var_out,	ioPort;	set dclk low
 busy:	
 	load 	var_out,	clk_Ndin;		
 	out	var_out,	ioPort;	set dclk high
@@ -56,23 +56,28 @@ busy:
 	jump	Z,		busy;
 	load 	shift_counter,	0xf4; 
 data_in:
-	load	var_out,	0x01;
+	load	var_out,	clk_Ndin;
 	out	var_out,	ioPort;		Set dclk high
 	call 	delay;	
-	in	input,	miso_port;
-	or	data_in_low,	input;		shift data through registers
-	sl0	data_in_low;
-	sla	data_in_high;
-	load	var_out,	0x00;
+	in	input,		ioPort;
+	rl	input;
+	rl 	input;
+	rl	input;				shift miso bit in carry
+	sla	data_in_low;			shift carry in data0 and data7 in carry
+	sla	data_in_high;			shift carry in data8
+	load	var_out,	Nclk_Ndin;
 	out	var_out,	ioPort;		Set dclk low
 	call 	delay;
 	add	shift_counter,	0x01;
 	jump	NC,		data_in;	
-	
+	load 	var_out,	cs_true;		
+	out	var_out,	ioPort;
 
-	load 	var_out,	0x01;		
-	out	var_out,	ioPort;	set dclk high
+	out	data_in_high,	0x02;
+	out	data_in_low,	0x01;
+
 	call 	delay;
+	jump 	end;
 	
 delay:
 	load	counter_low,	0x00;
