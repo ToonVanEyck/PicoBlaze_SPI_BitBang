@@ -31,7 +31,7 @@
     </sources>
     <editor>
         <loadedFiles>
-            <file></file>
+            <file>spiBlaze.psm</file>
         </loadedFiles>
     </editor>
 </project>

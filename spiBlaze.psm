@@ -12,71 +12,66 @@ input		equ		s6;
 data_in_high	equ		s7;
 data_in_low	equ		s8;
 
-mosi_port	equ		0x00;
-csN_port	equ		0x01;
-dclk_port	equ		0x03;
-busy_port	equ		0x04;
-miso_port	equ		0x05;
+
+ioPort		equ		0x00;
+
+busy_mask	equ		0x10;
+miso_masl	equ		0x20;
+
+cs_true		equ		0x01;
+Nclk_Ndin	equ		0x00;
+Nclk_din	equ		0x04;
+clk_Ndin	equ		0x02;
+clk_din		equ		0x06;
 
 
 readX		equ		0x93;
 readY		equ		0xd3;
 
-	load	var_out,	0x01;
-	out	var_out,	csN_port;	Set csN high
+	load	var_out,	cs_true;	begin situation
+	out	var_out,	ioPort;		Set csN high
 
 	load	shift_out,	readX;		set to do an X read
 read:
 	load 	shift_counter,	0xf8; 		Counter to count 8 bits
-	load	var_out,	0x00;
-	out	var_out,	dclk_port;	Set dclk low
-	out	var_out,	csN_port;	Set csN low
+	load	var_out,	Nclk_Ndin;
+	out	var_out,	ioPort;		Set dclk low and din MOSI low
 shift:
-	load	var_out,	0x00;
-	out	var_out,	dclk_port;	set dclk low
-	load	var_out,	0x01;
-	and 	var_out,	shift_out;
-	out	var_out,	mosi_port;	set MOSI bit
-	sr0	shift_out;			shift MOSI register	
-	call	delay;				wait half period
-	load 	var_out,	0x01;		
-	out	var_out,	dclk_port;	set dclk high
-	call 	delay;
+	sl0	shift_out;			shift MOSI register	
+	call 	C,		setMOSI;
+	call 	NC,		clrMOSI;
 	add	shift_counter,	0x01;
 	jump	NC,		shift;
-	load	var_out,	0x00;
-	out	var_out,	dclk_port;	set dclk low
+	load	var_out,	Nclk_Ndin;
+	out	var_out,	ioPort;	set dclk low
 busy:	
-	load 	var_out,	0x01;		
-	out	var_out,	dclk_port;	set dclk high
+	load 	var_out,	clk_Ndin;		
+	out	var_out,	ioPort;	set dclk high
 	call 	delay;
-	load 	var_out,	0x00;		
-	out	var_out,	dclk_port;	set dclk low
+	load 	var_out,	Nclk_Ndin;		
+	out	var_out,	ioPort;	set dclk low
 	call 	delay;
-	in	input,		busy_port;
-	test	input,		0x01;
-	jump	NZ,		busy;
-	; CODE FOR BUSY AND MISO HERE!
-	
-	
+	in	input,		ioPort;
+	test	input,		busy_mask;
+	jump	Z,		busy;
 	load 	shift_counter,	0xf4; 
 data_in:
 	load	var_out,	0x01;
-	out	var_out,	csN_port;	Set dclk high
+	out	var_out,	ioPort;		Set dclk high
 	call 	delay;	
 	in	input,	miso_port;
 	or	data_in_low,	input;		shift data through registers
 	sl0	data_in_low;
 	sla	data_in_high;
 	load	var_out,	0x00;
-	out	var_out,	csN_port;	Set dclk low
+	out	var_out,	ioPort;		Set dclk low
 	call 	delay;
 	add	shift_counter,	0x01;
 	jump	NC,		data_in;	
 	
 
 	load 	var_out,	0x01;		
-	out	var_out,	dclk_port;	set dclk high
+	out	var_out,	ioPort;	set dclk high
 	call 	delay;
 	
 delay:
@@ -91,6 +86,24 @@ delay_inner:
 	add	counter_high,	0x01;
 	test	counter_high,	0x02; 
 	jump 	NC,		delay_inner;
+	ret;
+
+setMOSI:
+	load 	var_out,	Nclk_din;		
+	out	var_out,	ioPort;
+	call 	delay;
+	load 	var_out,	clk_din;		
+	out	var_out,	ioPort;
+	call 	delay;
+	ret;
+	
+clrMOSI:
+	load 	var_out,	Nclk_Ndin;		
+	out	var_out,	ioPort;
+	call 	delay;
+	load 	var_out,	clk_Ndin;		
+	out	var_out,	ioPort;
+	call 	delay;
 	ret;
 	
 	
