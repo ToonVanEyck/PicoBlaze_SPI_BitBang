@@ -1,17 +1,16 @@
 counter_low 	equ		s0;
 counter_mid	equ		s1;
 counter_high 	equ		s2;
-
 var_out		equ		s3;
-
-shift_out	equ		s4;
+shift_io	equ		s4;
 shift_counter	equ		s5;
+data_in_high	equ		s6;
+data_in_low	equ		s7;
+memory_cnt	equ		s8;
+xy		equ		s9;
 
-input		equ		s6;
-
-data_in_high	equ		s7;
-data_in_low	equ		s8;
-
+data_out_high	equ		sa;
+data_out_low	equ		sb;
 
 ioPort		equ		0x00;
 
@@ -27,42 +26,49 @@ clk_din		equ		0x06;
 
 readX		equ		0x93;
 readY		equ		0xd3;
-
+;------------------------------------------- MAIN -------------------------------------------------
+init:
+	load 	memory_cnt,	0x00;
 	load	var_out,	cs_true;	begin situation
 	out	var_out,	ioPort;		Set csN high
+	load 	xy,		0x00;		0 => read X, 1 => read Y
 
-	load	shift_out,	readX;		set to do an X read
 read:
+	load	data_out_high,	0x00;
+	load	data_out_low,	0x00;
+	load	data_in_high,	0x00;
+	load	data_in_low,	0x00;
+	test 	xy,		0x10;
+	call 	Z,		setX;
+	call 	NZ,		setY;
 	load 	shift_counter,	0xf8; 		Counter to count 8 bits
 	load	var_out,	Nclk_Ndin;
 	out	var_out,	ioPort;		Set dclk low and din MOSI low
 shift:
-	sl0	shift_out;			shift MOSI register	
+	sl0	shift_io;			shift MOSI register	
 	call 	C,		setMOSI;
 	call 	NC,		clrMOSI;
 	add	shift_counter,	0x01;
 	jump	NC,		shift;
-;	load	var_out,	Nclk_Ndin;
-	;out	var_out,	ioPort;	set dclk low
 busy:	
 	load 	var_out,	clk_Ndin;		
-	out	var_out,	ioPort;	set dclk high
+	out	var_out,	ioPort;		set dclk high
 	call 	delay;
 	load 	var_out,	Nclk_Ndin;		
-	out	var_out,	ioPort;	set dclk low
+	out	var_out,	ioPort;		set dclk low
 	call 	delay;
-	in	input,		ioPort;
-	test	input,		busy_mask;
+	in	shift_io,	ioPort;
+	test	shift_io,	busy_mask;
 	jump	Z,		busy;
 	load 	shift_counter,	0xf4; 
 data_in:
 	load	var_out,	clk_Ndin;
 	out	var_out,	ioPort;		Set dclk high
 	call 	delay;	
-	in	input,		ioPort;
-	rl	input;
-	rl 	input;
-	rl	input;				shift miso bit in carry
+	in	shift_io,	ioPort;
+	rl	shift_io;
+	rl 	shift_io;
+	rl	shift_io;			shift miso bit in carry
 	sla	data_in_low;			shift carry in data0 and data7 in carry
 	sla	data_in_high;			shift carry in data8
 	load	var_out,	Nclk_Ndin;
@@ -70,14 +76,47 @@ data_in:
 	call 	delay;
 	add	shift_counter,	0x01;
 	jump	NC,		data_in;	
-	load 	var_out,	cs_true;		
+	load 	var_out,	cs_true;	set CS high		
 	out	var_out,	ioPort;
+
+	load 	shift_io,	memory_cnt;	---------------- STOR VALUES -------------
+	or	shift_io,	xy;
+	store	data_in_high, 	(shift_io);
+	add	shift_io,	0x01;
+	store	data_in_low, 	(shift_io);
+	
+	
+	test 	xy,		0x10;
+	call 	NZ,		memadd;
+	load 	counter_low,	memory_cnt
+	and	counter_low,	xy;		count_low contains memory location of next memory place
+	jump 	calc_avg;
+load_data:
+	store	data_in_high, 	(shift_io);
+	store	data_in_high, 	(shift_io);
+calc_avg:
+	sr0	data_in_high;
+	sra	data_in_low; /2
+	sr0	data_in_high;
+	sra	data_in_low; /4
+	sr0	data_in_high;
+	sra	data_in_low; /8
+
+	add	data_out_low,data_in_low;
+	addc	data_out_high,data_in_high;	
+
+
+	;jump load_data; 
 
 	out	data_in_high,	0x02;
 	out	data_in_low,	0x01;
 
+	xor  	xy,		0x10;	switch x<->y read
 	call 	delay;
-	jump 	end;
+	jump 	read;
+
+
+;--------------------------------------- FUNCTIONS ---------------------------------------------
 	
 delay:
 	load	counter_low,	0x00;
@@ -92,7 +131,6 @@ delay_inner:
 	test	counter_high,	0x02; 
 	jump 	NC,		delay_inner;
 	ret;
-
 setMOSI:
 	load 	var_out,	Nclk_din;		
 	out	var_out,	ioPort;
@@ -110,6 +148,18 @@ clrMOSI:
 	out	var_out,	ioPort;
 	call 	delay;
 	ret;
-	
-	
+setX:
+	load	shift_io,	readX;
+	ret;
+setY:
+	load	shift_io,	readY;
+	ret;
+memadd:
+	add	memory_cnt,	0x02;
+	test	memory_cnt,	0x10;
+	call 	NZ,		memclr;
+	ret;
+memclr:
+	load	memory_cnt,	0x00;
+	ret;
 end:
