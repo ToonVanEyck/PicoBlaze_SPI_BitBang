@@ -2,22 +2,22 @@
 <project version="2">
     <versioning>
         <version></version>
-        <title></title>
+        <title>BlazeSPI</title>
         <comment></comment>
     </versioning>
     <processor>
         <type>Xilinx PicoBlaze family</type>
         <settings version="1">
-            <picDerivate>3</picDerivate>
+            <picDerivate>4</picDerivate>
             <clkFreq>0</clkFreq>
             <memBankSize>1024</memBankSize>
             <memBankCount>1</memBankCount>
             <memSharedLoc>1</memSharedLoc>
             <scrpdSize>64</scrpdSize>
             <intVector>1023</intVector>
-            <entityName></entityName>
-            <vhdlTemplateFile></vhdlTemplateFile>
-            <vhdlOutputFile></vhdlOutputFile>
+            <entityName>touch</entityName>
+            <vhdlTemplateFile>../ROM_form_7S_1K_14March13.vhd</vhdlTemplateFile>
+            <vhdlOutputFile>../../../../../Xilinx projects/Untangled/Untangled.srcs/sources_1/imports/new/touch.vhd</vhdlOutputFile>
             <verilogTemplateFile></verilogTemplateFile>
             <verilogOutputFile></verilogOutputFile>
             <memOutputFile></memOutputFile>
