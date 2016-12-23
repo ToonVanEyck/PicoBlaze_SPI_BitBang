@@ -7,15 +7,18 @@ shift_counter	equ		s5;
 data_in_high	equ		s6;
 data_in_low	equ		s7;
 memory_cnt	equ		s8;
-xy		equ		s9;
+xyz		equ		s9;
 
 data_out_high	equ		sa;
 data_out_low	equ		sb;
+xyz_check	equ		sc;
 
 xDataHigh	equ		0x02;
 xDataLow	equ		0x01;
 yDataHigh	equ		0x20;
 yDataLow	equ		0x10;
+zDataHigh	equ		0x80;
+zDataLow	equ		0x40;
 
 ioPort		equ		0x00;
 
@@ -31,31 +34,31 @@ clk_din		equ		0x06;
 
 readX		equ		0xd3;
 readY		equ		0x93;
-;	load	sc,		0x04;
-;debug:
+readZ		equ		0xb3;
+
+
+
 	
-;	xor	sc,		0x04;
-;	out	sc,		0x00;
-;	call 	delay;
-;	jump 	debug;
-
-
-
-
 init:
 	load 	memory_cnt,	0x00;
 	load	var_out,	cs_true;	begin situation
 	out	var_out,	ioPort;		Set csN high
-	load 	xy,		0x00;		0 => read X, 1 => read Y
-
+	load	xyz,		0x10;
 read:
-	test 	xy,		0x10;
-	call 	Z,		setX;
-	call 	NZ,		setY;
+	rl	xyz;
+read_old:
+	load	xyz_check,	xyz;
+	and 	xyz_check,	0x60;
+	test	xyz,		0x80;
+	call	NZ,		xyz_rst;
+	
+;	jump	read;
 	load	data_out_high,	0x00;
 	load	data_out_low,	0x00;
 	load	data_in_high,	0x00;
 	load	data_in_low,	0x00;
+	load	shift_io,	0x93;
+	or	shift_io,	xyz;
 	load 	shift_counter,	0xf8; 		Counter to count 8 bits
 	load	var_out,	Nclk_Ndin;
 	out	var_out,	ioPort;		Set dclk low and din MOSI low
@@ -117,15 +120,27 @@ data_in:
 	
 	load 	var_out,	cs_true;	set CS high		
 	out	var_out,	ioPort;
-
+;----------------------- END READ ----------------------------------
+	test	xyz,		0x40;
+	call 	NZ,		outX;
+	test	xyz,		0x10;
+	call 	NZ,		outY;
+	test	xyz,		0x20;
+	call 	NZ,		outZ;
+	
+	test 	xyz,		0x20; data_in is Z data
+	jump	Z,		store_data;
+	comp	data_in_high	0x02;
+	jump	C		read_old; read z again  if it is smaller 0x01	
+store_data:
 	load 	shift_io,	memory_cnt;	---------------- STOR VALUES -------------
-	or	shift_io,	xy;
+	or	shift_io,	xyz;
 	store	data_in_high, 	(shift_io);
 	add	shift_io,	0x01;
 	store	data_in_low, 	(shift_io);
 	
-	load 	counter_low,	memory_cnt
-;	or	counter_low,	xy;		count_low contains memory location of next memory place
+	load 	counter_low,	0x00;
+	or	counter_low,	xyz;		count_low contains memory location of next memory place
 	load	counter_high,	counter_low;
 	add	counter_high,	0x10;
 ;	jump 	calc_avg;
@@ -149,14 +164,12 @@ calc_avg:
 	sr0	data_out_high;
 	sra	data_out_low; /8
 	
-	test 	xy,		0x10;
+	test 	xyz,		0x10;
 	call 	NZ,		memadd;
 
-	xor  	xy,		0x10;	switch x<->y read
+	xor  	xyz,		0x10;	switch x<->y read
 	call 	delay;
 	jump 	read;
-
-
 ;--------------------------------------- FUNCTIONS ---------------------------------------------
 	
 delay:
@@ -164,7 +177,7 @@ delay:
 	load	counter_mid,	0x00;
 	load	counter_high,	0x00;
 delay_inner:
-	add 	counter_low,	0xff;		SHOULD be 0x01 @ 125MHz
+	add 	counter_low,	0x01;		SHOULD be 0x01 @ 125MHz
 	jump 	NC,		delay_inner;
 	add	counter_mid,	0x01;		SHOULD be 0x01 @ 125MHz
 	test	counter_mid,	0xff; 		FAST MODE!
@@ -194,60 +207,20 @@ setX:
 	out	data_out_high,	yDataHigh;	output average y data and prepare to read x data
 	out	data_out_low,	yDataLow;
 	load	shift_io,	readX;
-;------------------------------------------- to debug
-;	load	data_out_high,  0xff;
-;	load	data_out_low,   0xff;
-;	out	data_out_high,	yDataHigh;
-;	out	data_out_low,	yDataLow;
-;	call 	delay;
-;	call 	delay;
-;	call 	delay;
-;	call 	delay;
-;	call 	delay;
-;	call 	delay;
-;	call 	delay;
-;	call 	delay;
-;	call 	delay;
-;	call 	delay;
-;	call 	delay;
-;	call 	delay;
-;	call 	delay;
-;	call 	delay;
-;	call 	delay;
-;	call 	delay;
-;	call 	delay;
-;	call 	delay;
-;--------------------------------------------
+;	load	var_out,	0x02;
+;	out	var_out,	0x0f;
 	ret;
 setY:
 	out	data_out_high,	xDataHigh;	output average x data and prepare to read y data
 	out	data_out_low,	xDataLow;
 	load	shift_io,	readY;
-;------------------------------------------- to debug
-;	load	data_out_high,  0x00;
-;	load	data_out_low,   0x00;
-;	out	data_out_high,	yDataHigh;
-;	out	data_out_low,	yDataLow;
-;	call 	delay;
-;	call 	delay;
-;	call 	delay;
-;	call 	delay;
-;	call 	delay;
-;	call 	delay;
-;	call 	delay;
-;	call 	delay;
-;	call 	delay;
-;	call 	delay;
-;	call 	delay;
-;	call 	delay;
-;	call 	delay;
-;	call 	delay;
-;	call 	delay;
-;	call 	delay;
-;	call 	delay;
-;	call 	delay;
-;--------------------------------------------
+;	load	var_out,	0x03;
+;	out	var_out,	0x0f;
 	ret;
+setZ:
+;	load	var_out,	0x01;
+;	out	var_out,	0x0f;
+	ret
 memadd:
 	add	memory_cnt,	0x02;
 	test	memory_cnt,	0x10;
@@ -255,5 +228,20 @@ memadd:
 	ret;
 memclr:
 	load	memory_cnt,	0x00;
+	ret;
+xyz_rst:
+	load	xyz,		0x10;
+	ret;
+outX:
+	out 	data_in_high, 	xDataHigh;
+	out 	data_in_low, 	xDataLow;
+	ret;
+outY:
+	out 	data_in_high, 	yDataHigh;
+	out 	data_in_low, 	yDataLow;
+	ret;
+outZ:
+	out 	data_in_high, 	zDataHigh;
+	out 	data_in_low, 	zDataLow;
 	ret;
 end:
