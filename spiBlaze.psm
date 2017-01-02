@@ -46,13 +46,11 @@ init:
 	load	xyz,		0x10;
 read:
 	rl	xyz;
-read_old:
 	load	xyz_check,	xyz;
 	and 	xyz_check,	0x60;
 	test	xyz,		0x80;
 	call	NZ,		xyz_rst;
-	
-;	jump	read;
+read_old:
 	load	data_out_high,	0x00;
 	load	data_out_low,	0x00;
 	load	data_in_high,	0x00;
@@ -121,26 +119,23 @@ data_in:
 	load 	var_out,	cs_true;	set CS high		
 	out	var_out,	ioPort;
 ;----------------------- END READ ----------------------------------
-	test	xyz,		0x40;
-	call 	NZ,		outX;
-	test	xyz,		0x10;
-	call 	NZ,		outY;
-	test	xyz,		0x20;
-	call 	NZ,		outZ;
-	
-	test 	xyz,		0x20; data_in is Z data
+	test 	xyz,		0x20; 		data_in is Z data
 	jump	Z,		store_data;
-	comp	data_in_high	0x02;
-	jump	C		read_old; read z again  if it is smaller 0x01	
+	call			outZ;			 		output z data
+	comp	data_in_high,	0x02;
+	jump	C,		not_touched; 	read z again  if it is smaller 0x01
 store_data:
 	load 	shift_io,	memory_cnt;	---------------- STOR VALUES -------------
-	or	shift_io,	xyz;
+	sra 	xyz_check;
+	sra 	xyz_check;
+	and	xyz_check,	0x10;
+	or	shift_io,	xyz_check;
 	store	data_in_high, 	(shift_io);
 	add	shift_io,	0x01;
 	store	data_in_low, 	(shift_io);
 	
 	load 	counter_low,	0x00;
-	or	counter_low,	xyz;		count_low contains memory location of next memory place
+	or	counter_low,	xyz_check;		count_low contains memory location of next memory place
 	load	counter_high,	counter_low;
 	add	counter_high,	0x10;
 ;	jump 	calc_avg;
@@ -163,11 +158,14 @@ calc_avg:
 	sra	data_out_low; /4
 	sr0	data_out_high;
 	sra	data_out_low; /8
-	
 	test 	xyz,		0x10;
 	call 	NZ,		memadd;
+	
+	test	xyz,		0x40;
+	call	NZ,		outX;
+	test 	xyz,		0x10;
+	call 	NZ,		outY
 
-	xor  	xyz,		0x10;	switch x<->y read
 	call 	delay;
 	jump 	read;
 ;--------------------------------------- FUNCTIONS ---------------------------------------------
@@ -203,24 +201,6 @@ clrMOSI:
 	out	var_out,	ioPort;
 	call 	delay;
 	ret;
-setX:
-	out	data_out_high,	yDataHigh;	output average y data and prepare to read x data
-	out	data_out_low,	yDataLow;
-	load	shift_io,	readX;
-;	load	var_out,	0x02;
-;	out	var_out,	0x0f;
-	ret;
-setY:
-	out	data_out_high,	xDataHigh;	output average x data and prepare to read y data
-	out	data_out_low,	xDataLow;
-	load	shift_io,	readY;
-;	load	var_out,	0x03;
-;	out	var_out,	0x0f;
-	ret;
-setZ:
-;	load	var_out,	0x01;
-;	out	var_out,	0x0f;
-	ret
 memadd:
 	add	memory_cnt,	0x02;
 	test	memory_cnt,	0x10;
@@ -233,15 +213,25 @@ xyz_rst:
 	load	xyz,		0x10;
 	ret;
 outX:
-	out 	data_in_high, 	xDataHigh;
-	out 	data_in_low, 	xDataLow;
+	out 	data_out_high, 	xDataHigh;
+	out 	data_out_low, 	xDataLow;
 	ret;
 outY:
-	out 	data_in_high, 	yDataHigh;
-	out 	data_in_low, 	yDataLow;
+;	load	var_out,	0xff;
+;	out 	var_out, 	yDataHigh;
+	out 	data_out_high, 	yDataHigh;
+	out 	data_out_low, 	yDataLow;
 	ret;
 outZ:
 	out 	data_in_high, 	zDataHigh;
 	out 	data_in_low, 	zDataLow;
 	ret;
+	
+not_touched:
+	load	var_out,	0x00;
+	out 	var_out, 	yDataHigh;
+	out 	var_out, 	xDataHigh;
+	out 	var_out, 	yDataLow;
+	out 	var_out, 	xDataLow;
+	jump			read_old; 
 end:
