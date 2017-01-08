@@ -1,237 +1,227 @@
-counter_low 	equ		s0;
-counter_mid	equ		s1;
-counter_high 	equ		s2;
-var_out		equ		s3;
-shift_io	equ		s4;
-shift_counter	equ		s5;
-data_in_high	equ		s6;
-data_in_low	equ		s7;
-memory_cnt	equ		s8;
-xyz		equ		s9;
+counter_low     equ     s0;
+counter_mid     equ     s1;
+counter_high    equ     s2;
+var_out         equ     s3;
+shift_io        equ     s4;
+shift_counter   equ     s5;
+data_in_high    equ     s6;
+data_in_low     equ     s7;
+memory_cnt      equ     s8;
+xyz             equ     s9;
 
-data_out_high	equ		sa;
-data_out_low	equ		sb;
-xyz_check	equ		sc;
+data_out_high   equ     sa;
+data_out_low    equ     sb;
+xyz_check       equ     sc;
 
-xDataHigh	equ		0x02;
-xDataLow	equ		0x01;
-yDataHigh	equ		0x20;
-yDataLow	equ		0x10;
-zDataHigh	equ		0x80;
-zDataLow	equ		0x40;
+xDataHigh       equ     0x02;
+xDataLow        equ     0x01;
+yDataHigh       equ     0x20;
+yDataLow        equ     0x10;
+zDataHigh       equ     0x80;
+zDataLow        equ     0x40;
 
-ioPort		equ		0x00;
+ioPort          equ     0x00;
 
-busy_mask	equ		0x10;
-miso_masl	equ		0x20;
+busy_mask       equ     0x10;
+miso_masl       equ     0x20;
 
-cs_true		equ		0x01;
-Nclk_Ndin	equ		0x00;
-Nclk_din	equ		0x04;
-clk_Ndin	equ		0x02;
-clk_din		equ		0x06;
-
-
-readX		equ		0xd3;
-readY		equ		0x93;
-readZ		equ		0xb3;
+cs_true         equ     0x01;
+Nclk_Ndin       equ     0x00;
+Nclk_din        equ     0x04;
+clk_Ndin        equ     0x02;
+clk_din         equ     0x06;
 
 
+readX           equ     0xd3;
+readY           equ     0x93;
+readZ           equ     0xb3;
 
-	
+
+
+
 init:
-	load 	memory_cnt,	0x00;
-	load	var_out,	cs_true;	begin situation
-	out	var_out,	ioPort;		Set csN high
-	load	xyz,		0x10;
+    load    memory_cnt,     0x00;
+    load    var_out,        cs_true;        begin situation
+    out     var_out,        ioPort;         Set csN high
+    load    xyz,            0x10;
 read:
-	rl	xyz;
-	load	xyz_check,	xyz;
-	and 	xyz_check,	0x60;
-	test	xyz,		0x80;
-	call	NZ,		xyz_rst;
+    rl      xyz;
+    load    xyz_check,      xyz;
+    and     xyz_check,      0x60;
+    test    xyz,            0x80;
+    call    NZ,             xyz_rst;
 read_old:
-	load	data_out_high,	0x00;
-	load	data_out_low,	0x00;
-	load	data_in_high,	0x00;
-	load	data_in_low,	0x00;
-	load	shift_io,	0x93;
-	or	shift_io,	xyz;
-	load 	shift_counter,	0xf8; 		Counter to count 8 bits
-	load	var_out,	Nclk_Ndin;
-	out	var_out,	ioPort;		Set dclk low and din MOSI low
+    load    data_out_high,  0x00;
+    load    data_out_low,   0x00;
+    load    data_in_high,   0x00;
+    load    data_in_low,    0x00;
+    load    shift_io,       0x93;
+    or      shift_io,       xyz;
+    load    shift_counter,  0xf8;           Counter to count 8 bits
+    load    var_out,        Nclk_Ndin;
+    out     var_out,        ioPort;         Set dclk low and din MOSI low
 shift:
-	sl0	shift_io;			shift MOSI register	
-	call 	C,		setMOSI;
-	call 	NC,		clrMOSI;
-	add	shift_counter,	0x01;
-	jump	NC,		shift;
-	load 	var_out,	Nclk_din;		
-	out	var_out,	ioPort;
-	call 	delay;
-busy:	
-	in	shift_io,	ioPort;
-	test	shift_io,	busy_mask;
-	jump	Z,		busy;
-	load 	var_out,	clk_Ndin;		
-	out	var_out,	ioPort;		set dclk high
-	call 	delay;
-	load 	var_out,	Nclk_Ndin;		
-	out	var_out,	ioPort;		set dclk low
-	call 	delay;
-	load 	shift_counter,	0xf4; 
+    sl0     shift_io;                       Shift MOSI register in carry
+    call    C,              setMOSI;        Generate clockpulse while MOSI is high
+    call    NC,             clrMOSI;        Generate clockpulse while MOSI is low
+    add     shift_counter,  0x01;
+    jump    NC,             shift;
+    load    var_out,        Nclk_din;  
+    out     var_out,        ioPort;
+    call    delay;
+busy:   
+    in      shift_io,       ioPort;
+    test    shift_io,       busy_mask;
+    jump    Z,              busy;           While busy is "0"
+    load    var_out,        clk_Ndin;  
+    out     var_out,        ioPort;         set dclk high
+    call    delay;
+    load    var_out,        Nclk_Ndin; 
+    out     var_out,        ioPort;         set dclk low
+    call    delay;
+    load    shift_counter,  0xf4; 
 data_in:
-	load	var_out,	clk_Ndin;
-	out	var_out,	ioPort;		Set dclk high
-	call 	delay;	
-	in	shift_io,	ioPort;
-	rl	shift_io;
-	rl 	shift_io;
-	rl	shift_io;			shift miso bit in carry
-	sla	data_in_low;			shift carry in data0 and data7 in carry
-	sla	data_in_high;			shift carry in data8
-	load	var_out,	Nclk_Ndin;
-	out	var_out,	ioPort;		Set dclk low
-	call 	delay;
-	add	shift_counter,	0x01;
-	jump	NC,		data_in;
-	; 3 clock pulses
-	load 	var_out,	clk_Ndin;		
-	out	var_out,	ioPort;		set dclk high
-	call 	delay;
-	load 	var_out,	Nclk_Ndin;		
-	out	var_out,	ioPort;		set dclk low
-	call 	delay;
-	load 	var_out,	clk_Ndin;		
-	out	var_out,	ioPort;		set dclk high
-	call 	delay;
-	load 	var_out,	Nclk_Ndin;		
-	out	var_out,	ioPort;		set dclk low
-	call 	delay;
-	load 	var_out,	clk_Ndin;		
-	out	var_out,	ioPort;		set dclk high
-	call 	delay;
-	load 	var_out,	Nclk_Ndin;		
-	out	var_out,	ioPort;		set dclk low
-	call 	delay;
+    load    var_out,        clk_Ndin;
+    out     var_out,        ioPort;         Set dclk high
+    call    delay; 
+    in      shift_io,       ioPort;
+    rl      shift_io;
+    rl      shift_io;
+    rl      shift_io;                       shift miso bit in carry
+    sla     data_in_low;                    shift carry in data0 and data7 in carry
+    sla     data_in_high;                   shift carry in data8
+    load    var_out,        Nclk_Ndin;
+    out     var_out,        ioPort;         Set dclk low
+    call    delay;
+    add     shift_counter,  0x01;
+    jump    NC,             data_in;
+    ;                                       3 clock pulses
+    load    var_out,        clk_Ndin;  
+    out     var_out,        ioPort;         set dclk high
+    call    delay;
+    load    var_out,        Nclk_Ndin; 
+    out     var_out,        ioPort;         set dclk low
+    call    delay;
+    load    var_out,        clk_Ndin;  
+    out     var_out,        ioPort;         set dclk high
+    call    delay;
+    load    var_out,        Nclk_Ndin; 
+    out     var_out,        ioPort;         set dclk low
+    call    delay;
+    load    var_out,        clk_Ndin;  
+    out     var_out,        ioPort;         set dclk high
+    call    delay;
+    load    var_out,        Nclk_Ndin; 
+    out     var_out,        ioPort;         set dclk low
+    call    delay;
 
-	
-	load 	var_out,	cs_true;	set CS high		
-	out	var_out,	ioPort;
-;----------------------- END READ ----------------------------------
-	test 	xyz,		0x20; 		data_in is Z data
-	jump	Z,		store_data;
-	call			outZ;			 		output z data
-	comp	data_in_high,	0x02;
-	jump	C,		not_touched; 	read z again  if it is smaller 0x01
+    load    var_out,        cs_true;        set CS high    
+    out     var_out,        ioPort;
+;----------------------- READING COMPLETED ----------------------------------
+    test    xyz,            0x20;           data_in is Z data
+    jump    Z,              store_data;     store data if it is X or Y data
+    comp    data_in_high,   0x02;
+    jump    C,              not_touched;    read z again  if it is smaller 0x01
 store_data:
-	load 	shift_io,	memory_cnt;	---------------- STOR VALUES -------------
-	sra 	xyz_check;
-	sra 	xyz_check;
-	and	xyz_check,	0x10;
-	or	shift_io,	xyz_check;
-	store	data_in_high, 	(shift_io);
-	add	shift_io,	0x01;
-	store	data_in_low, 	(shift_io);
-	
-	load 	counter_low,	0x00;
-	or	counter_low,	xyz_check;		count_low contains memory location of next memory place
-	load	counter_high,	counter_low;
-	add	counter_high,	0x10;
-;	jump 	calc_avg;
+    load    shift_io,       memory_cnt;
+    sra     xyz_check;
+    sra     xyz_check;
+    and     xyz_check,      0x10;
+    or      shift_io,       xyz_check;
+    store   data_in_high,   (shift_io);
+    add     shift_io,       0x01;
+    store   data_in_low,    (shift_io);
+    load    counter_low,    0x00;
+    or      counter_low,    xyz_check;      count_low contains memory location of next memory place
+    load    counter_high,   counter_low;
+    add     counter_high,   0x10;
 load_data:
-	fetch	data_in_high, 	(counter_low);
-	add	counter_low,	0x01;
-	fetch	data_in_low, 	(counter_low);
-	add 	counter_low,	0x01;
+    fetch   data_in_high,   (counter_low);
+    add     counter_low,    0x01;
+    fetch   data_in_low,    (counter_low);
+    add     counter_low,    0x01;
 calc_avg:
-	add	data_out_low,data_in_low;
-	addc	data_out_high,data_in_high;	
+    add     data_out_low,   data_in_low;
+    addc    data_out_high,  data_in_high; 
+    test    counter_low,   counter_high;
+    jump    Z, load_data; 
+    
+    sr0     data_out_high;
+    sra     data_out_low;                   /2
+    sr0     data_out_high;
+    sra     data_out_low;                   /4
+    sr0     data_out_high;
+    sra     data_out_low;                   /8
+    test    xyz,            0x10;
+    call    NZ,             memadd;
+    
+    test    xyz,            0x40;
+    call    NZ,             outX;
+    test    xyz,            0x10;
+    call    NZ,             outY
 
-	
-	test 	counter_low,	counter_high;
-	jump 	Z,		load_data; 
-	
-	sr0	data_out_high;
-	sra	data_out_low; /2
-	sr0	data_out_high;
-	sra	data_out_low; /4
-	sr0	data_out_high;
-	sra	data_out_low; /8
-	test 	xyz,		0x10;
-	call 	NZ,		memadd;
-	
-	test	xyz,		0x40;
-	call	NZ,		outX;
-	test 	xyz,		0x10;
-	call 	NZ,		outY
-
-	call 	delay;
-	jump 	read;
+    call    delay;
+    jump    read;
 ;--------------------------------------- FUNCTIONS ---------------------------------------------
-	
 delay:
-	load	counter_low,	0x00;
-	load	counter_mid,	0x00;
-	load	counter_high,	0x00;
+    load    counter_low,    0x00;
+    load    counter_mid,    0x00;
+    load    counter_high,   0x00;
 delay_inner:
-	add 	counter_low,	0x01;		SHOULD be 0x01 @ 125MHz
-	jump 	NC,		delay_inner;
-	add	counter_mid,	0x01;		SHOULD be 0x01 @ 125MHz
-	test	counter_mid,	0xff; 		FAST MODE!
-	jump 	NC,		delay_inner;
-;	add	counter_high,	0x01;
-;	test	counter_high,	0x01; 
-;	jump 	NC,		delay_inner;
-	ret;
+    add     counter_low,    0x01;           SHOULD be 0x01 @ 125MHz
+    jump    NC,             delay_inner;
+    add     counter_mid,    0x01;           SHOULD be 0x01 @ 125MHz
+    test    counter_mid,    0xff;   
+    jump    NC,             delay_inner;
+    ret;
+
 setMOSI:
-	load 	var_out,	Nclk_din;		
-	out	var_out,	ioPort;
-	call 	delay;
-	load 	var_out,	clk_din;		
-	out	var_out,	ioPort;
-	call 	delay;
-	ret;
-	
+    load    var_out,        Nclk_din;  
+    out     var_out,        ioPort;
+    call    delay;
+    load    var_out,        clk_din;   
+    out     var_out,        ioPort;
+    call    delay;
+    ret;
+    
 clrMOSI:
-	load 	var_out,	Nclk_Ndin;		
-	out	var_out,	ioPort;
-	call 	delay;
-	load 	var_out,	clk_Ndin;		
-	out	var_out,	ioPort;
-	call 	delay;
-	ret;
+    load    var_out,        Nclk_Ndin; 
+    out     var_out,        ioPort;
+    call    delay;
+    load    var_out,        clk_Ndin;  
+    out     var_out,        ioPort;
+    call    delay;
+    ret;
+
 memadd:
-	add	memory_cnt,	0x02;
-	test	memory_cnt,	0x10;
-	call 	NZ,		memclr;
-	ret;
+    add     memory_cnt,     0x02;
+    test    memory_cnt,     0x10;
+    call    NZ,             memclr;
+    ret;
+
 memclr:
-	load	memory_cnt,	0x00;
-	ret;
+    load    memory_cnt,     0x00;
+    ret;
+
 xyz_rst:
-	load	xyz,		0x10;
-	ret;
+    load    xyz,            0x10;
+    ret;
+
 outX:
-	out 	data_out_high, 	xDataHigh;
-	out 	data_out_low, 	xDataLow;
-	ret;
+    out     data_out_high,  xDataHigh;
+    out     data_out_low,   xDataLow;
+    ret;
+
 outY:
-;	load	var_out,	0xff;
-;	out 	var_out, 	yDataHigh;
-	out 	data_out_high, 	yDataHigh;
-	out 	data_out_low, 	yDataLow;
-	ret;
-outZ:
-	out 	data_in_high, 	zDataHigh;
-	out 	data_in_low, 	zDataLow;
-	ret;
-	
+    out     data_out_high,  yDataHigh;
+    out     data_out_low,   yDataLow;
+    ret;
+
 not_touched:
-	load	var_out,	0x00;
-	out 	var_out, 	yDataHigh;
-	out 	var_out, 	xDataHigh;
-	out 	var_out, 	yDataLow;
-	out 	var_out, 	xDataLow;
-	jump			read_old; 
+    load    var_out,    0x00;
+    out     var_out,    yDataHigh;
+    out     var_out,    xDataHigh;
+    out     var_out,    yDataLow;
+    out     var_out,    xDataLow;
+    jump    read_old; 
 end:
